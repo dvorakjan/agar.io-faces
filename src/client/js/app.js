@@ -21,6 +21,7 @@ var enemySpin = -Math.PI;
 var mobile = false;
 var foodSides = 10;
 var virusSides = 20;
+var faceImages = {};
 
 var debug = function(args) {
     if (console && console.log) {
@@ -35,6 +36,13 @@ if ( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
 function startGame(type) {
     playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0,25);
     playerType = type;
+
+    var face = new Image();
+    face.src = 'img/faces/' + playerName + '.png';
+    face.onload = function() {
+        console.log(face.src + ' face loaded');
+    };
+    faceImages[playerName] = face;
 
     screenWidth = window.innerWidth;
     screenHeight = window.innerHeight;
@@ -533,8 +541,7 @@ function setupSocket(socket) {
         socket.emit('gotit', player);
         gameStart = true;
         debug('Game started at: ' + gameStart);
-        chat.addSystemLine('Connected to the game!');
-        chat.addSystemLine('Type <b>-help</b> for a list of commands.');
+        // chat.addSystemLine('Type <b>-help</b> for a list of commands.');
         if (mobile) {
             document.getElementById('gameAreaWrapper').removeChild(document.getElementById('chatbox'));
         }
@@ -548,20 +555,23 @@ function setupSocket(socket) {
     });
 
     socket.on('playerDied', function (data) {
-        chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> was eaten.');
+        chat.addSystemLine('<b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> was eaten.');
     });
 
     socket.on('playerDisconnect', function (data) {
-        chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> disconnected.');
+        chat.addSystemLine('<b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> disconnected.');
     });
 
     socket.on('playerJoin', function (data) {
-        chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> joined.');
+        chat.addSystemLine('<b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> joined.');
     });
 
     socket.on('leaderboard', function (data) {
         leaderboard = data.leaderboard;
         var status = '<span class="title">Leaderboard</span>';
+        var onloadfn = function() {
+            console.log(face.src + ' face loaded');
+        };
         for (var i = 0; i < leaderboard.length; i++) {
             status += '<br />';
             if (leaderboard[i].id == player.id){
@@ -574,6 +584,14 @@ function setupSocket(socket) {
                     status += (i + 1) + '. ' + leaderboard[i].name;
                 else
                     status += (i + 1) + '. An unnamed cell';
+            }
+
+            // load face if missing
+            if (!faceImages[leaderboard[i].name]) {
+                var face = new Image();
+                face.src = 'img/faces/' + leaderboard[i].name + '.png';
+                face.onload = onloadfn;
+                faceImages[leaderboard[i].name] = face;
             }
         }
         //status += '<br />Players: ' + data.players;
@@ -766,6 +784,12 @@ function drawPlayers(order) {
         graph.textBaseline = 'middle';
         graph.font = 'bold ' + fontSize + 'px sans-serif';
 
+        // draw face if loaded
+        if (faceImages[nameCell] && faceImages[nameCell].naturalWidth) {
+            graph.drawImage(faceImages[nameCell], circle.x-cellCurrent.radius, circle.y-cellCurrent.radius, cellCurrent.radius*2, cellCurrent.radius*2);
+            nameCell = '';
+        }
+
         if (toggleMassState === 0) {
             graph.strokeText(nameCell, circle.x, circle.y);
             graph.fillText(nameCell, circle.x, circle.y);
@@ -777,6 +801,7 @@ function drawPlayers(order) {
             graph.strokeText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
             graph.fillText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
         }
+
     }
 }
 
@@ -959,3 +984,25 @@ function resize() {
     player.screenHeight = c.height = screenHeight = playerType == 'player' ? window.innerHeight : gameHeight;
     socket.emit('windowResized', { screenWidth: screenWidth, screenHeight: screenHeight });
 }
+
+function getQueryParams(qs) {
+    qs = qs.split('+').join(' ');
+
+    var params = {},
+        re = /[?&]?([^=]+)=([^&]*)/g;
+
+    while (true) {
+        var tokens = re.exec(qs);
+        if (!tokens) break;
+        params[decodeURIComponent(tokens[1])] = decodeURIComponent(tokens[2]);
+    }
+
+    return params;
+}
+
+$(function(){
+    var query = getQueryParams(document.location.search);
+    if (query.username) {
+        $('#playerNameInput').val(query.username.replace('-','')).attr('disabled','disabled');
+    }
+});

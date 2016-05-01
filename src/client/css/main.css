@@ -94,13 +94,13 @@ div {
 }
 
 .chatbox .chat-list li.system {
-    color: #9b59b6;
+    color: #A9A9A9;
     font-style: italic;
 }
 
-.chatbox .chat-list li.system:before {
+/*.chatbox .chat-list li.system:before {
     content: "» ";
-}
+}*/
 
 .chatbox .chat-input {
     pointer-events: all;

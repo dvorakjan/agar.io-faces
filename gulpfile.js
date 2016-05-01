@@ -43,6 +43,49 @@ gulp.task('build-server', ['lint'], function () {
     .pipe(gulp.dest('bin/server/'));
 });
 
+gulp.task('crop-faces', function() {
+  var easyimg = require('easyimage'),
+      glob    = require('glob'),
+      fs      = require('fs'),
+      os      = require('os'),
+      mapping = require('./faces-mapping.json');
+
+  glob('./faces/*.*', function(er, files){
+    files.forEach(function(input){
+
+      var parts        = input.split('/'),
+          mappingInfo  = parts[parts.length-1].match(/(\w*)\.\w*$/),
+          temp         = os.tmpdir() + parts[parts.length-1] + '.temp';
+
+      var output = '';
+      if (mappingInfo && mappingInfo[1]) {
+          var mappingValue = mapping[mappingInfo[1]];
+          if (typeof mappingValue == 'undefined') {
+              return;
+          }
+          output = './src/client/img/faces/' + mappingValue + '.png';
+      } else {
+          output = './src/client/img/faces/' + parts[parts.length-1].replace('.jpg','') + '.png';
+      }
+
+      easyimg.info(input).then(function(file) {
+        var size = file.height < file.width ? file.height : file.width;
+        easyimg.exec('convert ' + input + ' -resize ' + (size) + 'x' + (size) + '^  -gravity center -crop ' + (size + 2) + 'x' + (size + 2) + '+0+0 +repage ' + temp).then(function success () {
+            easyimg.exec('convert -size '+size+'x'+size+' xc:none -fill '+temp+' -draw "circle '+size/2+','+size/2+' '+size/2+',1" ' + output).then(function success () {
+              fs.unlink(temp);
+              console.log(output);
+            }, function error (err) {
+              console.err(err);
+            });
+          });
+      }, function error (err) {
+        console.err(err);
+      });
+    });
+  });
+
+});
+
 gulp.task('watch', ['build'], function () {
   gulp.watch(['src/client/**/*.*'], ['build-client', 'move-client']);
   gulp.watch(['src/server/*.*', 'src/server/**/*.js'], ['build-server']);
